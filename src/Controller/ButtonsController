@@ -1,0 +1,331 @@
+package Controller;
+
+import View.ProjectJFrame;
+import View.AddCustomerJDialog;
+import View.AddIteamJDialog;
+import Model.InvoiceHeader;
+import Model.HeaderTable;
+import Model.InvoiceLine;
+import Model.IteamTable;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+/**
+ *
+ * @author Hoksha
+ */
+public class ButtonsController implements ActionListener, ListSelectionListener {
+
+private ProjectJFrame pJFrame; 
+private DateFormat invoiceDateT = new SimpleDateFormat("dd-MM-yyyy");
+
+public ButtonsController(ProjectJFrame pJFrame){
+    this.pJFrame = pJFrame;
+}
+   @Override
+public void actionPerformed(ActionEvent e) {
+
+switch (e.getActionCommand()) {
+case "CreateNewMainInvoice":
+newInvoiceMain();
+break;
+case "DeleteMainInvoice":
+invoiceMainDelete();
+break;
+case "CreateNewSecondaryInvoice":
+newInvoiceSecondary();
+break;
+case "DeleteSecondaryInvoice":
+invoiceSecondaryDelete();
+break;
+case "LoadFile":
+loadFile();
+break;
+case "SaveFile":
+saveFile();
+break;
+case "cancelMainOrderLeft":
+mainOrderCancel();
+break;
+case "newMainOrderLeft":
+newCustomerOrderLeft();
+break;
+case "cancelSecondaryOrderRight":
+cancelIteamOrderRight();
+break;
+case "newSecondaryOrderRight":
+newSecondaryOrderRight();
+break;
+}
+}
+
+private void loadFile() {
+JOptionPane.showMessageDialog(pJFrame, "Upload Customers Data", "Attension Please", JOptionPane.INFORMATION_MESSAGE);
+JFileChooser openFile = new JFileChooser();
+int output = openFile.showOpenDialog(pJFrame);
+if (output == JFileChooser.APPROVE_OPTION) {
+File CustomerFile = openFile.getSelectedFile();
+try {
+FileReader customerFr = new FileReader(CustomerFile);
+BufferedReader customerBr = new BufferedReader(customerFr);
+String strCustomer = null;
+
+while ((strCustomer = customerBr.readLine()) != null) {
+String[] customerُElements = strCustomer.split(",");
+String invoiceNummberS = customerُElements[0];
+String invoiceDateS = customerُElements[1];
+String customerName = customerُElements[2];
+
+int invoiceNumber = Integer.parseInt(invoiceNummberS);
+Date invoiceDate = this.invoiceDateT.parse(invoiceDateS);
+
+InvoiceHeader invoice = new InvoiceHeader(invoiceNumber, customerName, invoiceDate);
+pJFrame.getInvoiceStructureMainList().add (invoice);
+
+}
+
+JOptionPane.showMessageDialog(pJFrame, "Upload Customers's Iteams Data", "Attension Please", JOptionPane.INFORMATION_MESSAGE);
+output = openFile.showOpenDialog(pJFrame);
+if (output == JFileChooser.APPROVE_OPTION) {
+File iteamFile = openFile.getSelectedFile();
+BufferedReader iteamBr = new BufferedReader(new FileReader(iteamFile));
+String strIteam = null;
+while ((strIteam = iteamBr.readLine()) != null) {
+String[] iteamElements = strIteam.split(",");
+String invoiceNumberS = iteamElements[0];
+String itemName = iteamElements[1];
+String itemPriceS = iteamElements[2];
+String itemCountS = iteamElements[3];
+
+int invoiceNumber = Integer.parseInt(invoiceNumberS);
+double itemPrice = Double.parseDouble(itemPriceS);
+int itemCount = Integer.parseInt(itemCountS);
+InvoiceHeader main = searchInvoiceNumber(invoiceNumber);
+InvoiceLine invoiceSecondary = new InvoiceLine(itemName, itemPrice, itemCount, main);
+main.getInvLine().add(invoiceSecondary);
+}
+pJFrame.setInvoiceStructureMainTable(new HeaderTable(pJFrame.getInvoiceStructureMainList()));
+pJFrame.getInvoiceCustomerTableLeftSide().setModel(pJFrame.getInvoiceStructureMainTable());
+pJFrame.getInvoiceCustomerTableLeftSide().validate();
+}
+System.out.println("revise");
+} catch (ParseException ex) {
+ex.printStackTrace();
+
+
+
+JOptionPane.showMessageDialog(pJFrame, "Wrong Date\n" + ex.getMessage(), "Stop", JOptionPane.INFORMATION_MESSAGE);
+} catch (NumberFormatException ex) {
+ex.printStackTrace();
+JOptionPane.showMessageDialog(pJFrame, "Wrong Number\n" + ex.getMessage(), "Stop", JOptionPane.INFORMATION_MESSAGE);
+} catch (FileNotFoundException ex) {
+ex.printStackTrace();
+JOptionPane.showMessageDialog(pJFrame, "Wrong File\n" + ex.getMessage(), "Stop", JOptionPane.INFORMATION_MESSAGE);
+} catch (IOException ex) {
+ex.printStackTrace();
+JOptionPane.showMessageDialog(pJFrame, "Error Reading File\n" + ex.getMessage(), "Stop", JOptionPane.INFORMATION_MESSAGE);
+
+
+
+
+}
+}
+showInv();
+}
+
+private void saveFile() {
+String mains = "";
+String secondarys = "";
+for (InvoiceHeader main : pJFrame.getInvoiceStructureMainList()) {
+mains += main.getInformationsCSV();
+mains += "\n";
+for (InvoiceLine secondary : main.getInvLine()) {
+secondarys += secondary.getInformationsCSV();
+secondarys += "\n";
+}
+}
+JOptionPane.showMessageDialog(pJFrame, "Choose File to Save Main Invoice", "Attension", JOptionPane.INFORMATION_MESSAGE);
+JFileChooser fileChooser = new JFileChooser();
+int output = fileChooser.showSaveDialog(pJFrame);
+if (output == JFileChooser.APPROVE_OPTION) {
+File mainFile = fileChooser.getSelectedFile();
+try {
+FileWriter MainFileWriter = new FileWriter(mainFile);
+MainFileWriter.write(mains);
+MainFileWriter.flush();
+MainFileWriter.close();
+
+JOptionPane.showMessageDialog(pJFrame, "Choose File to Save Secondary Invoice", "Attension", JOptionPane.INFORMATION_MESSAGE);
+output = fileChooser.showSaveDialog(pJFrame);
+if (output == JFileChooser.APPROVE_OPTION) {
+File secondaryFile = fileChooser.getSelectedFile();
+FileWriter secondaryFileWriter = new FileWriter(secondaryFile);
+secondaryFileWriter.write(secondarys);
+secondaryFileWriter.flush();
+secondaryFileWriter.close();
+}
+} catch (Exception ex) {
+JOptionPane.showMessageDialog(pJFrame, "not responding: " + ex.getMessage(), "not responding", JOptionPane.INFORMATION_MESSAGE);
+}
+}
+
+}
+
+private InvoiceHeader searchInvoiceNumber(int invoiceNumber) {
+InvoiceHeader main = null;
+for (InvoiceHeader invoice : pJFrame.getInvoiceStructureMainList()) {
+if (invoiceNumber == invoice.getInvoiceNumber()) {
+main = invoice;
+break;
+}
+}
+return main;
+}
+
+@Override
+public void valueChanged(ListSelectionEvent e) {
+System.out.println("Invoice Choosed");
+invoiceMainTableRowChoosed();
+}
+
+private void invoiceMainTableRowChoosed() { 
+int choosedRowIndex = pJFrame.getInvoiceCustomerTableLeftSide().getSelectedRow();
+if (choosedRowIndex >= 0) {
+InvoiceHeader row = pJFrame.getInvoiceStructureMainTable().getInvoiceHeader().get(choosedRowIndex);
+pJFrame.getCustomerNameTextFiled().setText(row.getCustomerName());
+pJFrame.getInvoiceDateTextFiled().setText(invoiceDateT.format(row.getInvoiceDate()));
+pJFrame.getInvoiceNumberLabel().setText("" + row.getInvoiceNumber());
+pJFrame.getInvoiceTotalLabel().setText("" + row.getInvoiceTotal());
+ArrayList<InvoiceLine> secondary = row.getInvLine();
+pJFrame.setInvoiceStructureSecondaryTable(new IteamTable(secondary));
+pJFrame.getIteamTableRightSide().setModel(pJFrame.getInvoiceStructureSecondaryTable());
+pJFrame.getInvoiceStructureSecondaryTable().fireTableDataChanged();
+}
+}
+
+private void newInvoiceMain() {
+pJFrame.setCutsomerAction(new AddCustomerJDialog(pJFrame));
+pJFrame.getCutsomerAction().setVisible(true);
+}
+
+private void newInvoiceSecondary() {
+pJFrame.setIteamAction(new AddIteamJDialog(pJFrame));
+pJFrame.getIteamAction().setVisible(true);
+}
+
+private void mainOrderCancel() {
+pJFrame.getCutsomerAction().setVisible(false);
+pJFrame.getCutsomerAction().dispose();
+pJFrame.setCutsomerAction(null);
+}
+
+private void newCustomerOrderLeft() {
+invoiceDateT.setLenient(false);
+String customerName = pJFrame.getCutsomerAction().getCustomerNameTextField().getText();
+String invoiceDateS = pJFrame.getCutsomerAction().getInvoiceDateTextField().getText();
+pJFrame.getCutsomerAction().setVisible(false);
+pJFrame.getCutsomerAction().dispose();
+pJFrame.setCutsomerAction(null);
+try {
+Date invoiceDate = this.invoiceDateT.parse(invoiceDateS);
+int invoiceNumber = otherInvoiceNumber();
+InvoiceHeader invoiceMain = new InvoiceHeader(invoiceNumber, customerName, invoiceDate);
+pJFrame.getInvoiceStructureMainList().add(invoiceMain);
+pJFrame.getInvoiceStructureMainTable().fireTableDataChanged();
+} catch (ParseException ex) {
+    
+JOptionPane.showMessageDialog(pJFrame, "Wrong Date.","Stop",JOptionPane.INFORMATION_MESSAGE);
+        
+}
+showInv();
+}
+
+private int otherInvoiceNumber() {
+int max = 0;
+for (InvoiceHeader Main : pJFrame.getInvoiceStructureMainList()) {
+if (Main.getInvoiceNumber() > max) {
+max = Main.getInvoiceNumber();
+}
+}
+return max + 1;
+}
+
+private void cancelIteamOrderRight() {
+pJFrame.getIteamAction().setVisible(false);
+pJFrame.getIteamAction().dispose();
+pJFrame.setIteamAction(null);
+}
+
+private void newSecondaryOrderRight() {
+int sRow=pJFrame.getInvoiceCustomerTableLeftSide().getSelectedRow();
+String itemName = pJFrame.getIteamAction().getItemNameTextField().getText();
+String itemCountS = pJFrame.getIteamAction().getItemCountTextField().getText();
+String itemPriceS = pJFrame.getIteamAction().getItemPriceTextField().getText();
+pJFrame.getIteamAction().setVisible(false);
+pJFrame.getIteamAction().dispose();
+pJFrame.setIteamAction(null);
+int itemCount = Integer.parseInt(itemCountS);
+double itemPrice = Double.parseDouble(itemPriceS);
+int MainIndex = pJFrame.getInvoiceCustomerTableLeftSide().getSelectedRow();
+InvoiceHeader invoice = pJFrame.getInvoiceStructureMainTable().getInvoiceHeader().get(MainIndex);
+
+InvoiceLine invoiceSecondary = new InvoiceLine(itemName, itemPrice, itemCount, invoice);
+invoice.addInvoiceSecondary(invoiceSecondary);
+pJFrame.getInvoiceStructureSecondaryTable().fireTableDataChanged();
+pJFrame.getInvoiceStructureMainTable().fireTableDataChanged();
+pJFrame.getInvoiceTotalLabel().setText("" + invoice.getInvoiceTotal());
+showInv();
+pJFrame.getInvoiceCustomerTableLeftSide().setRowSelectionInterval(sRow, sRow);
+}
+
+private void invoiceMainDelete() {
+int invoiceIndex = pJFrame.getInvoiceCustomerTableLeftSide().getSelectedRow();
+InvoiceHeader main = pJFrame.getInvoiceStructureMainTable().getInvoiceHeader().get(invoiceIndex);
+pJFrame.getInvoiceStructureMainTable().getInvoiceHeader().remove(invoiceIndex);
+pJFrame.getInvoiceStructureMainTable().fireTableDataChanged();
+pJFrame.setInvoiceStructureSecondaryTable(new IteamTable(new ArrayList<InvoiceLine>()));
+pJFrame.getIteamTableRightSide().setModel(pJFrame.getInvoiceStructureSecondaryTable());
+pJFrame.getInvoiceStructureSecondaryTable().fireTableDataChanged();
+pJFrame.getCustomerNameTextFiled().setText("");
+pJFrame.getInvoiceDateTextFiled().setText("");
+pJFrame.getInvoiceNumberLabel().setText("");
+pJFrame.getInvoiceTotalLabel().setText("");
+showInv();
+}
+
+private void invoiceSecondaryDelete() {
+int secondaryIndex = pJFrame.getIteamTableRightSide().getSelectedRow();
+InvoiceLine secondary = pJFrame.getInvoiceStructureSecondaryTable().getInvoiceLine().get(secondaryIndex);
+pJFrame.getInvoiceStructureSecondaryTable().getInvoiceLine().remove(secondaryIndex);
+pJFrame.getInvoiceStructureSecondaryTable().fireTableDataChanged();
+pJFrame.getInvoiceStructureMainTable().fireTableDataChanged();
+pJFrame.getInvoiceTotalLabel().setText("" + secondary.getInvoiceHeader().getInvoiceTotal());
+showInv();
+}
+
+private void showInv() {
+System.out.println("succeeded");
+for (InvoiceHeader main : pJFrame.getInvoiceStructureMainList()) {
+System.out.println(main);
+}
+System.out.println("succeeded");
+}
+
+
+    
+}
